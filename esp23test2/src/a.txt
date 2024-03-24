@@ -1,0 +1,445 @@
+#include <ESP32Servo.h>
+#include <WiFi.h>
+#include <esp_now.h>
+#include <string.h>
+#include <sstream>
+
+Servo myservo_1; //定义一个Servo对象控制 有害垃圾舵机
+Servo myservo_2; //定义一个Servo对象控制 可回收垃圾舵机
+Servo myservo_3; //定义一个Servo对象控制 厨余垃圾舵机
+Servo myservo_4; //定义一个Servo对象控制 其他垃圾舵机
+
+int a; //接收串口获得的数据
+
+// 设置数据结构体
+struct sendMsg
+{
+    int id;
+    int type;
+    std::string data;
+};
+
+std::string bbbwaste;
+std::string kwaste;
+std::string hwaste;
+std::string rwaste;
+
+sendMsg myData;
+
+const std::string waste[] = {"battery", "capsule", "alcohol", "injector", "newpaper", "spon", "plastic", "teethbrush", "strawberry", "bread", "mushroom", "onion",
+                             "sponge", "tissue", "fpot", "mud"};
+const std::string type[] = {"Harmful", "Recyclable", "Kitchen", "bbb"};
+int total[4][4];
+
+std::string data()
+{
+    std::stringstream sstrg;
+    sstrg << "{\"name\":\"Bin\",\"data\":{\"load\":[";
+    for (int i = 0; i < 3; i++)
+    {
+        sstrg << '\"' << type[i] << "\":[";
+        for (int j = 0; j < 4; j++)
+        {
+            sstrg << '\"' << waste[i][j] << "\":" << total[i][j] << ',';
+        }
+        sstrg << "],";
+    }
+    sstrg << '\"' << type[3] << "\":[";
+    for (int j = 0; j < 4; j++)
+    {
+        sstrg << '\"' << waste[3][j] << "\":" << total[3][j] << ',';
+    }
+    sstrg << "]}}";
+    return sstrg.str();
+}
+
+// 接收设备的 MAC 地址
+uint8_t broadcastAddress[] = {0x0C, 0xDC, 0x7E, 0x1D, 0xAD, 0x58};
+
+// 数据发送回调函数
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+    char macStr[18];
+    Serial.print("Packet to: ");
+    snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+    Serial.println(macStr);
+    Serial.print("Send status: ");
+    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    Serial.println();
+}
+
+void setup()
+{
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            total[i][j] = 0;
+
+    // 初始化 ESP-NOW
+    WiFi.mode(WIFI_STA);
+    if (esp_now_init() != ESP_OK)
+    {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+    // 设置发送数据回调函数
+    esp_now_register_send_cb(OnDataSent);
+
+    // 绑定数据接收端
+    esp_now_peer_info_t peerInfo;
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    peerInfo.ifidx = WIFI_IF_STA;
+    // 检查设备是否配对成功
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+        Serial.println("Failed to add peer");
+        return;
+    }
+
+    //舵机初始化
+    myservo_1.attach(25); // 控制线连接数字25  有害垃圾舵机
+    myservo_1.write(0);
+    myservo_2.attach(26); // 控制线连接数字26   可回收物舵机
+    myservo_2.write(0);
+    myservo_3.attach(27); // 控制线连接数字27   厨余垃圾舵机
+    myservo_3.write(0);
+    myservo_4.attach(33); // 控制线连接数字33   其他垃圾舵机
+    myservo_4.write(0);
+
+    //串口初始化
+    Serial.begin(9600); //设置串口波特率为9600buad
+    delay(3000);        //每次上电需延时3秒钟，等待M6SE模块初始化，这个延时不能省略。
+}
+
+void senddata()
+{
+    myData.id = 0;
+    myData.type = 1;
+    myData.data = data();
+
+    // 发送数据
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+
+    // 检查数据是否发送成功
+    if (result == ESP_OK)
+    {
+        Serial.println("Sent with success");
+    }
+    else
+    {
+        Serial.println("Error sending the data");
+    }
+}
+
+void Servoturn1()
+{
+    myservo_1.write(90); // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    delay(3500);         //等待丢垃圾时间，设置为3秒
+    myservo_1.write(0);  // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    senddata();
+}
+
+void Servoturn2()
+{
+    myservo_2.write(90); // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    delay(3500);         //等待丢垃圾时间，设置为3秒
+    myservo_2.write(0);  // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    senddata();
+}
+
+void Servoturn3()
+{
+    myservo_3.write(90); // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    delay(3500);         //等待丢垃圾时间，设置为3秒
+    myservo_3.write(0);  // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    senddata();
+}
+
+void Servoturn4()
+{
+    myservo_4.write(90); // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    delay(3500);         //等待丢垃圾时间，设置为3秒
+    myservo_4.write(0);  // 舵机角度写入
+    delay(5);            // 等待转动到指定角度
+    senddata();
+}
+
+int c, d, e, f;
+
+void loop() //循环执行
+{
+
+    a = Serial.read();
+    switch (a)
+    {
+    case 0x01:
+        // c++;
+        // hwaste += "battery,";
+        // senddata("Harmful", c, hwaste);
+        total[0][0]++;
+        Servoturn1();
+        break;
+    case 0x02:
+        // c++;
+        // hwaste += "capsule,";
+        // senddata("Harmful", c, hwaste);
+        total[0][1]++;
+        Servoturn1();
+        break;
+    case 0x03:
+        // c++;
+        // hwaste += "alcohol,";
+        // senddata("Harmful", c, hwaste);
+        total[0][2]++;
+        Servoturn1();
+        break;
+    case 0x04:
+        // c++;
+        // hwaste += "injector,";
+        // senddata("Harmful", c, hwaste);
+        total[0][3]++;
+        Servoturn1();
+        break;
+    case 0x05:
+        // d++;
+        // rwaste += "newpaper,";
+        // senddata("Recyclable", d, rwaste);
+        total[1][0]++;
+        Servoturn2();
+        break;
+    case 0x06:
+        // d++;
+        // rwaste += "spon,";
+        // senddata("Recyclable", d, rwaste);
+        total[1][1]++;
+        Servoturn2();
+        break;
+    case 0x07:
+        // d++;
+        // rwaste += "plastic,";
+        // senddata("Recyclable", d, rwaste);
+        total[1][2]++;
+        Servoturn2();
+        break;
+    case 0x08:
+        // d++;
+        // rwaste += "teethbrush,";
+        // senddata("Recyclable", d, rwaste);
+        total[1][3]++;
+        Servoturn2();
+        break;
+    case 0x09:
+        // e++;
+        // kwaste += "strawberry,";
+        // senddata("Kitchen", e, kwaste);
+        total[2][0]++;
+        Servoturn3();
+        break;
+    case 0x0A:
+        // e++;
+        // kwaste += "bread,";
+        // senddata("Kitchen", e, kwaste);
+        total[2][1]++;
+        Servoturn3();
+        break;
+    case 0x0B:
+        // e++;
+        // kwaste += "mushroom,";
+        // senddata("Kitchen", e, kwaste);
+        total[2][2]++;
+        Servoturn3();
+        break;
+    case 0x0C:
+        // e++;
+        // kwaste += "onion,";
+        // senddata("Kitchen", e, kwaste);
+        total[2][3]++;
+        Servoturn3();
+        break;
+    case 0x0D:
+        // f++;
+        // bbbwaste += "sponge,";
+        // senddata("bbb", f, bbbwaste);
+        total[3][0]++;
+        Servoturn4();
+        break;
+    case 0x0E:
+        // f++;
+        // bbbwaste += "tissue,";
+        // senddata("bbb", f, bbbwaste);
+        total[3][1]++;
+        Servoturn4();
+        break;
+    case 0x0F:
+        // f++;
+        // bbbwaste += "fpot,";
+        // senddata("bbb", f, bbbwaste);
+        total[3][2]++;
+        Servoturn4();
+        break;
+    case 0x10:
+        // f++;
+        // bbbwaste += "mud,";
+        // senddata("bbb", f, bbbwaste);
+        total[3][3]++;
+        Servoturn4();
+        break;
+    }
+}
+
+////////////////////////////////////////////////////////////// 1级魔改版wifi
+#include <WiFi.h>
+#include <esp_now.h>
+#include <string.h>
+#include <Arduino.h>
+#include <stdlib.h>
+#include "BLE.h"
+#include "ESPNOW.h"
+// 设置数据结构体
+//结构体内的两个值的名字没有实际意义，仅表示先后顺序
+
+// char rubbish[][];
+
+uint8_t deviceAddress[5][6]; //待修改
+int deviceNum = 0;
+
+struct recvMsg
+{
+  int id;
+  int type;
+  char data[300]; // 大于最长可能输入的字符串长度
+};
+
+struct sendMsg
+{
+  int id;
+  int type;
+  int data;
+};
+
+bool status[3] = {0, 0, 0};
+std::string usual_msg1 = "{\"type\":\"usual\",\"devices_num\":3,\"devices\":[";
+std::string usual_msg2 = "]}";
+
+std::string urgent_msg1 = "{\"type\":\"urgrnt\",\"devices\":";
+
+int String2Hex(std::string c)
+{
+  int res = 0;
+  Serial.println(c.c_str());
+
+  if (c[0] >= 'A')
+    res += (c[0] - 'A' + 10) * 16;
+  else
+    res += (c[0] - '0') * 16;
+
+  if (c[1] >= 'A')
+    res += (c[1] - 'A' + 10);
+  else
+    res += (c[1] - '0');
+
+  Serial.println(res);
+  return res;
+}
+
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+  char macStr[18];
+  Serial.print("Packet to: ");
+  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  Serial.println(macStr);
+  Serial.print("Send status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  Serial.println();
+}
+
+// 数据接收回调函数
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+{
+  recvMsg msg;
+  Serial.println(len);
+  memcpy(&msg, incomingData, len);
+  if (msg.type == 1) // 普通消息
+  {
+    if (BLE::CONNECTED)
+    {
+      std::string data = msg.data;
+      BLE::update(usual_msg1 + data + usual_msg2);
+    }
+  }
+  if (msg.type == 2) // 紧急消息
+  {
+  }
+}
+void InputHandler(std::string input)
+{
+  char Command = input[0];
+  if (Command == 'C')
+  {
+    for (int i = 0; i < 6; i++)
+    {
+      deviceAddress[deviceNum][i] = String2Hex(input.substr(2 + i * 3, 2));
+    }
+    esp_now_peer_info_t peerInfo;
+    memcpy(peerInfo.peer_addr, deviceAddress[deviceNum], 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    peerInfo.ifidx = WIFI_IF_STA;
+    sendMsg myData({deviceNum});
+
+    Serial.println();
+    for (int i = 0; i < 6; i++)
+    {
+      Serial.println(deviceAddress[deviceNum][i]);
+    }
+
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+      Serial.println("Failed to add peer");
+      return;
+    }
+
+    esp_err_t result = esp_now_send(deviceAddress[deviceNum], (uint8_t *)&myData, sizeof(myData));
+    if (result == ESP_OK)
+    {
+      Serial.println("Sent with success");
+    }
+    else
+    {
+      Serial.println("Error sending the data");
+    }
+  }
+}
+void setup()
+{
+  Serial.begin(115200);
+  BLE::LOG = true;
+  BLE::setInputCallback(InputHandler);
+  BLE::init();
+  // 初始化 ESP-NOW
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != 0)
+  {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  // 设置接收数据回调函数
+  esp_now_register_recv_cb(OnDataRecv);
+
+  esp_now_register_send_cb(OnDataSent);
+} //接受数据与loop同步运行
+
+void loop()
+{
+}

@@ -1,0 +1,247 @@
+#include <WiFi.h>
+#include <esp_now.h>
+#include <string.h>
+#include <Arduino.h>
+#include <stdlib.h>
+#include "BLE.h"
+// 设置数据结构体
+//结构体内的两个值的名字没有实际意义，仅表示先后顺序
+
+// char rubbish[][];
+
+typedef struct struct_message
+{
+  String board_name;
+  int a;
+  int b;
+  String x;
+} struct_message;
+String b;
+String bbbwaste;
+String kwaste;
+String hwaste;
+String rwaste;
+struct_message myData;
+
+// 数据接收回调函数
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+{
+  memcpy(&myData, incomingData, sizeof(myData));
+  if (myData.board_name == "DHTsensor")
+  {
+    if (BLE::CONNECTED)
+    {
+      char message[100]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+      sprintf(message, "{\"board_name\":\"DHTsensor\",\"temperature\":%d,\"humidity\":%d}", myData.a, myData.b);
+      BLE::update(message);
+      delay(1000);
+    }
+    Serial.print("board_name: ");
+    Serial.println(myData.board_name);
+    Serial.print("temperature: "); //此处标识传输数据的实际意义：温度
+    Serial.println(myData.a);
+    Serial.print("humidity:"); //湿度
+    Serial.println(myData.b);
+    Serial.println();
+  }
+  if (myData.board_name == "door")
+  {
+    Serial.print("board_name: ");
+    Serial.println(myData.board_name);
+    if (BLE::CONNECTED)
+    {
+      char message2[100]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+      sprintf(message2, "{\"board_name\":\"Lock\",\"a\":%d,\"b\":%d}", myData.a, myData.b);
+      BLE::update(message2);
+      delay(1000);
+    }
+    Serial.print("times:"); //触发门禁次数
+    Serial.println(myData.a);
+    Serial.print("enter="); //是否进入，进入为1，未进入为0
+    Serial.println(myData.b);
+    Serial.println();
+  }
+  if (myData.board_name == "bbb")
+  {
+    Serial.print("board_name: ");
+    Serial.println(myData.board_name);
+    if (BLE::CONNECTED)
+    {
+      b = myData.x;
+      if (!(b == "cl") && (!(bbbwaste == "cl")))
+      {
+        bbbwaste += b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, bbbwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else if (bbbwaste == "cl")
+      {
+        bbbwaste = b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, bbbwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else
+      {
+        bbbwaste = "cl";
+        char msg[300];
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, bbbwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+    }
+    Serial.print("amount:");
+    Serial.println(myData.a);
+    Serial.print("rubbish:");
+    Serial.print(bbbwaste);
+    Serial.println();
+  }
+  if (myData.board_name == "Kitchen")
+  {
+    Serial.print("board_name: ");
+    Serial.println(myData.board_name);
+    if (BLE::CONNECTED)
+    {
+      b = myData.x;
+      if (!(b == "cl") && (!(kwaste == "cl")))
+      {
+        kwaste += b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, kwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else if (kwaste == "cl")
+      {
+        kwaste = b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, kwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else
+      {
+        kwaste = "cl";
+        char msg[300];
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, kwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+    }
+    Serial.print("amount:"); //触发门禁次数
+    Serial.println(myData.a);
+    Serial.print("rubbish:");
+    Serial.print(kwaste);
+    Serial.println();
+  }
+  if (myData.board_name == "Recyclable")
+  {
+    Serial.print("board_name: ");
+    Serial.println(myData.board_name);
+
+    if (BLE::CONNECTED)
+    {
+      b = myData.x;
+      if (!(b == "cl") && (!(rwaste == "cl")))
+      {
+        rwaste += b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, rwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else if (rwaste == "cl")
+      {
+        rwaste = b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, rwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else
+      {
+        rwaste = "cl";
+        char msg[300];
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, rwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      Serial.print("amount:"); //触发门禁次数
+      Serial.println(myData.a);
+      Serial.print("rubbish:");
+      Serial.print(rwaste);
+      Serial.println();
+    }
+  }
+  if (myData.board_name == "Harmful")
+  {
+    Serial.print("board_name: ");
+    Serial.println(myData.board_name);
+    if (BLE::CONNECTED)
+    {
+      b = myData.x;
+      if (!(b == "cl") && (!(hwaste == "cl")))
+      {
+        hwaste += b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, hwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else if (hwaste == "cl")
+      {
+        hwaste = b;
+        char msg[300]; //保证sprintf不会越界就行，建议多开一点，后面也会去掉的
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, hwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      else
+      {
+        hwaste = "cl";
+        char msg[300];
+        sprintf(msg, "{\"board_name\":\"bbb\",\"amount\":%d,\"rubbish\":\"%s\"}", myData.a, hwaste);
+        BLE::update(msg);
+        delay(1000);
+      }
+      Serial.print("amount:"); //触发门禁次数
+      Serial.println(myData.a);
+      Serial.print("rubbish:");
+      Serial.print(hwaste);
+      Serial.println();
+    }
+  }
+}
+void InputHandler(std::string input)
+{
+  if (input == "refresh")
+  {
+    /* 获取最新的设备信息 */
+    std::string data = "{\"type\":\"usual\",\"devices_num\":4,\"devices\":[{\"name\":\"Auto_humidifier\",\"id\":10001,\"data\":{\"temperature\":21,\"humidity\":0.45}},{\"name\":\"Access\",\"id\":10002,\"data\":{\"status\":\"closed\"}},{\"name\":\"Bin\",\"id\":10004,\"data\":{\"status\":1,\"nums\":4,\"load\":[1,7,2,8]  }},{\"name\":\"Other\",\"id\":10003,\"data\":{}}]}";
+    BLE::update(data);
+  }
+}
+void setup()
+{
+  Serial.begin(115200);
+  BLE::LOG = true;
+  BLE::setInputCallback(InputHandler);
+  BLE::init();
+  // 初始化 ESP-NOW
+  WiFi.mode(WIFI_STA);
+  if (esp_now_init() != 0)
+  {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  // 设置接收数据回调函数
+  esp_now_register_recv_cb(OnDataRecv);
+} //接受数据与loop同步运行
+
+void loop()
+{
+}

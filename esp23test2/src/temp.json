@@ -1,0 +1,12 @@
+{
+    "type": "usual",
+    "devicesNum": 1,
+    "thisDeviceID": 0,
+    "deviceData": {
+        "name": "Door",
+        "data": {
+            "times": 0,
+            "status": 0
+        }
+    }
+}
